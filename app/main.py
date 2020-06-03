@@ -21,10 +21,11 @@ def hello_world():
 @app.route('/upload', methods=["GET", "POST"])
 def upload_image():
     if request.method == "POST":
-        if request.files:
-            image_object = request.files["image"]
-            image = Image(str(uuid.uuid4()), image_object.filename)
-            image.add_image(image_object)
+        if request.files.getlist("images[]"):
+            files = request.files.getlist("images[]")
+            for file_obj in files:
+                image = Image(str(uuid.uuid4()), file_obj.filename)
+                image.add_image(file_obj)
 
     return render_template("public/upload_image.html")
 
