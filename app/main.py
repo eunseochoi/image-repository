@@ -1,9 +1,12 @@
 import logging
 import os
+import uuid
 
 from flask import Flask, redirect, render_template, request
 
 from google.cloud import storage
+
+from models.image import Image
 
 # constants
 CLOUD_STORAGE_BUCKET = os.environ.get('CLOUD_STORAGE_BUCKET')
@@ -18,17 +21,10 @@ def hello_world():
 @app.route('/upload', methods=["GET", "POST"])
 def upload_image():
     if request.method == "POST":
-        # Check if file is empty
         if request.files:
-            image = request.files["image"]
-
-            bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-            blob = bucket.blob(image.filename)
-            blob.upload_from_string(image.read(), content_type=image.content_type)
-            blob.make_public()
-            #TODO: replace print statements with appropriate logging
-            print("Successfully added image to Google Cloud Storage")
-            return redirect(request.url)
+            image_object = request.files["image"]
+            image = Image(str(uuid.uuid4()), image_object.filename)
+            image.add_image(image_object)
 
     return render_template("public/upload_image.html")
 

@@ -16,4 +16,9 @@ This is an image repository which has two main functionalities:
   - Prevent user deleting images from another user
   - secure deletion of images
 
+
+Workflow:
+1. Setup basic flask application
+2. Render html for uploading file
+3. Configure GCP
 Fall 2020 Challenge
