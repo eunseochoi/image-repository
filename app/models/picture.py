@@ -28,24 +28,24 @@ class Picture(Model):
     image_id = fields.TextField()
     date_added = fields.DateTime()
     file_name = fields.TextField()
-    blob_path = fields.TextField()
+    blob_name = fields.TextField()
     user_id = fields.TextField()
 
-    def __init__(self, image_id="", file_name="", blob_path="", user_id=""):
+    def __init__(self, image_id="", file_name="", blob_name="", user_id=""):
         self.image_id = image_id
         self.date_added = datetime.datetime.now()
         self.file_name = file_name
-        self.blob_path = blob_path
+        self.blob_name = blob_name
         self.user_id = user_id
 
     def add_image(self, image_object, user_id):
         # Check for file name
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-        blob = bucket.blob(self.file_name)
+        blob = bucket.blob(user_id + "_" + self.file_name)
         blob.upload_from_string(
             image_object.read(), content_type=image_object.content_type
         )
-        self.blob_path = blob.name
+        self.blob_name = blob.name
         self.user_id = user_id
         logger.info("Successfully uploaded image to GCP")
 
@@ -65,8 +65,8 @@ class Picture(Model):
             logger.error("This user does not have permission to delete the image")
             return False
         try:
-            bucket.delete_blob(image_dict["blob_path"])
-            logger.debug("Deleted Blob: {}".format(image_dict["blob_path"]))
+            bucket.delete_blob(image_dict["blob_name"])
+            logger.debug("Deleted Blob: {}".format(image_dict["blob_name"]))
             # Delete Firestore
             image.delete()
             logger.debug(
