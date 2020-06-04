@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 
 import firebase_admin
@@ -10,16 +11,18 @@ from fireo import fields
 
 from google.cloud import storage
 
+from logger import ColoredLogger
+
 # Use the application default credentials
-CLOUD_STORAGE_BUCKET = os.environ.get('CLOUD_STORAGE_BUCKET')
+CLOUD_STORAGE_BUCKET = os.environ.get("CLOUD_STORAGE_BUCKET")
 storage_client = storage.Client()
 
 cred = credentials.ApplicationDefault()
-firebase_admin.initialize_app(cred, {
-  'projectId': os.environ.get('PROJECT_ID'),
-})
+firebase_admin.initialize_app(cred, {"projectId": os.environ.get("PROJECT_ID"),})
 
+logger = logging.getLogger("logger")
 db = firestore.client()
+
 
 class Picture(Model):
     image_id = fields.TextField()
@@ -34,19 +37,20 @@ class Picture(Model):
         self.blob_path = blob_path
 
     def add_image(self, image_object):
-        #Check for file name
+        # Check for file name
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
         blob = bucket.blob(self.file_name)
-        blob.upload_from_string(image_object.read(), content_type=image_object.content_type)
+        blob.upload_from_string(
+            image_object.read(), content_type=image_object.content_type
+        )
         self.blob_path = blob.name
-        print("successfully uploaded image to GCP")
-        
+        logger.info("Successfully uploaded image to GCP")
+
         # Store object in Firestore to keep track of ID's
-        print("IMAGE_ID: ", self.image_id)
+        logger.info("IMAGE_ID: {}".format(self.image_id))
         db.collection("Images").document(self.image_id).set(self.__dict__)
-        print("Successfully stored document in Firestore")
-        print(self.__dict__)
-    
+        logger.info("Successfully stored document in Firestore")
+
     def delete_image(self, image_id):
         # Find Firestore document using image_id
         image = db.collection("Images").document(image_id)
@@ -54,15 +58,20 @@ class Picture(Model):
         image_dict = image.get().to_dict()
         try:
             bucket.delete_blob(image_dict["blob_path"])
-            print("======Deleted Blob=======")
+            logger.debug("Deleted Blob: {}".format(image_dict["blob_path"]))
             # Delete Firestore
             image.delete()
+            logger.debug(
+                "Firestore document deleted for image_id: {}".format(
+                    image_dict["image_id"]
+                )
+            )
             return True
         except Exception as e:
-            print(str(e))
-            print("Cannot find blob in the bucket")
+            logger.debug(str(e))
+            logger.error("Cannot find blob in the bucket")
             return False
-        
+
     def bulk_delete(self):
         images = db.collection("Images").stream()
         count = 0
@@ -71,8 +80,8 @@ class Picture(Model):
                 self.delete_image(image.get("image_id"))
                 db.collection("Images").document(image.get("image_id")).delete()
                 count += 1
-            print("Deleted {} images".format(count))
+            logger.debug("Deleted {} images".format(count))
             return True
         except Exception as e:
-            print("Bulk-Delete Exception: ", str(e))
+            logger.error("Bulk-Delete Exception: {}".format(str(e)))
             return False

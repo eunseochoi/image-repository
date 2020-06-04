@@ -11,18 +11,19 @@ from models.picture import Picture
 from models.response import response
 
 # constants
-CLOUD_STORAGE_BUCKET = os.environ.get('CLOUD_STORAGE_BUCKET')
+CLOUD_STORAGE_BUCKET = os.environ.get("CLOUD_STORAGE_BUCKET")
 storage_client = storage.Client()
 
 app = Flask(__name__)
-#TODO: configure max size for image
 app.config["MAX_IMAGE_FILESIZE"] = 0.5 * 1024 * 1024
 app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
 
-@app.route('/upload', methods=["POST"])
+logger = logging.getLogger("logger")
+
+@app.route("/upload", methods=["POST"])
 def upload_image():
-    if request.files.getlist("images[]"):
-        files = request.files.getlist("images[]")
+    if request.files.getlist("images"):
+        files = request.files.getlist("images")
         for file_obj in files:
             is_valid, error_msg = _is_file_valid(file_obj, request)
             if False in is_valid.values():
@@ -30,10 +31,13 @@ def upload_image():
                 return jsonify(resp), HTTPStatus.BAD_REQUEST
             image = Picture(str(uuid.uuid4()), file_obj.filename)
             image.add_image(file_obj)
-    resp = response(HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files)))
+    resp = response(
+        HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files))
+    )
     return jsonify(resp), HTTPStatus.CREATED
 
-@app.route('/delete', methods=["DELETE"])
+
+@app.route("/delete", methods=["DELETE"])
 def delete_image():
     if request.form.get("image_id"):
         file_name = request.form.get("image_id")
@@ -41,32 +45,36 @@ def delete_image():
     elif request.args.get("bulk"):
         deleted = Picture().bulk_delete()
     else:
-        resp = response(HTTPStatus.BAD_REQUEST, "Image id not provided, nor bulk_delete option was not selected")
+        resp = response(
+            HTTPStatus.BAD_REQUEST,
+            "Image id not provided, nor bulk_delete option was not selected",
+        )
         return jsonify(resp), HTTPStatus.BAD_REQUEST
-    
+
     if deleted:
         resp = response(HTTPStatus.MOVED_PERMANENTLY, "Successfully deleted image")
         return jsonify(resp), HTTPStatus.MOVED_PERMANENTLY
     resp = response(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not delete image")
     return jsonify(resp), HTTPStatus.INTERNAL_SERVER_ERROR
 
+
 def _is_file_valid(file_obj, request):
     # Private helper function to validate file type, file name and file size
-    # File Name Check
     is_valid = {"name": True, "type": True, "size": True}
     error_msg = []
     ext = file_obj.filename.rsplit(".", 1)[1]
 
+    # File Name Check
     if file_obj.filename == "" or "." not in file_obj.filename:
         is_valid["valid_name"] = False
         error_msg.append("File name not valid")
         return is_valid, error_msg
-    
+    # File Type Check (only images/gifs are allowed)
     if ext.upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
         is_valid["type"] = False
         error_msg.append("File type not allowed")
         return is_valid, error_msg
-    
+    # File Size Check, if size exceeds, do not upload
     if "file_size" in request.cookies:
         file_size = request.cookies["file_size"]
         if int(file_size) <= app.config["MAX_IMAGE_FILESIZE"]:
@@ -75,15 +83,9 @@ def _is_file_valid(file_obj, request):
             return is_valid, error_msg
     return is_valid, error_msg
 
-@app.errorhandler(500)
-def server_error(e):
-    logging.exception('An error occurred during a request.')
-    return """
-    An internal error occurred: <pre>{}</pre>
-    See logs for full stacktrace.
-    """.format(e), 500
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # This is used when running locally. Gunicorn is used to run the
     # application on Google App Engine. See entrypoint in app.yaml.
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    logger.info("Running App on http://localhost:5000")
+    app.run(host="127.0.0.1", port=5000, debug=True)
