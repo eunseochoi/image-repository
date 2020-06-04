@@ -27,7 +27,7 @@ class Image(Model):
     file_name = fields.TextField()
     blob_path = fields.TextField()
 
-    def __init__(self, image_id, file_name, blob_path=""):
+    def __init__(self, image_id="", file_name="", blob_path=""):
         self.image_id = image_id
         self.date_added = datetime.datetime.now()
         self.file_name = file_name
@@ -45,3 +45,20 @@ class Image(Model):
         db.collection("Images").document(self.image_id).set(self.__dict__)
         print("Successfully stored document in Firestore")
         print(self.__dict__)
+    
+    def delete_image(self, image_id):
+        # Find Firestore document using image_id
+        image = db.collection("Images").document(image_id)
+        print(image)
+        bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
+        image_dict = image.get().to_dict()
+        try:
+            bucket.delete_blob(image_dict["blob_path"])
+            print("======Deleted Blob=======")
+            # Delete Firestore
+            image.delete()
+        except Exception as e:
+            print(str(e))
+            print("Cannot find blob in the bucket")
+        
+        

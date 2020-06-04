@@ -1,4 +1,4 @@
 app/__pycache__/
-models/__pycache__/
 env/
 .DS_Store
+app/models/__pycache__/image.cpython-38.pyc

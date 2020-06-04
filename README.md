@@ -21,4 +21,10 @@ Workflow:
 1. Setup basic flask application
 2. Render html for uploading file
 3. Configure GCP
+4. Make a Image model
+  a) image_id
+  b) date_uploaded
+  c) file_name
+  d) blob_path
+5. Store Firestore document for every file uploaded
 Fall 2020 Challenge

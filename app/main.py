@@ -29,6 +29,14 @@ def upload_image():
 
     return render_template("public/upload_image.html")
 
+@app.route('/delete', methods=["DELETE"])
+def delete_image():
+    if request.form.get("delete_img"):
+        file_name = request.form.get("delete_img")
+        Image().delete_image(file_name)
+
+    return render_template("public/upload_image.html")
+
 @app.errorhandler(500)
 def server_error(e):
     logging.exception('An error occurred during a request.')
