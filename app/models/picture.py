@@ -34,6 +34,7 @@ class Picture(Model):
         self.blob_path = blob_path
 
     def add_image(self, image_object):
+        #Check for file name
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
         blob = bucket.blob(self.file_name)
         blob.upload_from_string(image_object.read(), content_type=image_object.content_type)

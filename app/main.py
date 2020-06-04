@@ -17,12 +17,17 @@ storage_client = storage.Client()
 app = Flask(__name__)
 #TODO: configure max size for image
 app.config["MAX_IMAGE_FILESIZE"] = 0.5 * 1024 * 1024
+app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
 
 @app.route('/upload', methods=["POST"])
 def upload_image():
     if request.files.getlist("images[]"):
         files = request.files.getlist("images[]")
         for file_obj in files:
+            is_valid, error_msg = _is_file_valid(file_obj, request)
+            if False in is_valid.values():
+                resp = response(HTTPStatus.BAD_REQUEST, error_msg[0])
+                return jsonify(resp), HTTPStatus.BAD_REQUEST
             image = Picture(str(uuid.uuid4()), file_obj.filename)
             image.add_image(file_obj)
     resp = response(HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files)))
@@ -44,6 +49,31 @@ def delete_image():
         return jsonify(resp), HTTPStatus.MOVED_PERMANENTLY
     resp = response(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not delete image")
     return jsonify(resp), HTTPStatus.INTERNAL_SERVER_ERROR
+
+def _is_file_valid(file_obj, request):
+    # Private helper function to validate file type, file name and file size
+    # File Name Check
+    is_valid = {"name": True, "type": True, "size": True}
+    error_msg = []
+    ext = file_obj.filename.rsplit(".", 1)[1]
+
+    if file_obj.filename == "" or "." not in file_obj.filename:
+        is_valid["valid_name"] = False
+        error_msg.append("File name not valid")
+        return is_valid, error_msg
+    
+    if ext.upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
+        is_valid["type"] = False
+        error_msg.append("File type not allowed")
+        return is_valid, error_msg
+    
+    if "file_size" in request.cookies:
+        file_size = request.cookies["file_size"]
+        if int(file_size) <= app.config["MAX_IMAGE_FILESIZE"]:
+            is_valid["size"] = False
+            error_msg.append("File size exceeded maximum size of 500,000 bytes")
+            return is_valid, error_msg
+    return is_valid, error_msg
 
 @app.errorhandler(500)
 def server_error(e):
