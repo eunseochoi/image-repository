@@ -22,6 +22,7 @@ logger = logging.getLogger("logger")
 
 @app.route("/upload", methods=["POST"])
 def upload_image():
+    user_id = request.form.get("user_id")
     if request.files.getlist("images"):
         files = request.files.getlist("images")
         for file_obj in files:
@@ -30,7 +31,7 @@ def upload_image():
                 resp = response(HTTPStatus.BAD_REQUEST, error_msg[0])
                 return jsonify(resp), HTTPStatus.BAD_REQUEST
             image = Picture(str(uuid.uuid4()), file_obj.filename)
-            image.add_image(file_obj)
+            image.add_image(file_obj, user_id)
     resp = response(
         HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files))
     )
@@ -39,11 +40,12 @@ def upload_image():
 
 @app.route("/delete", methods=["DELETE"])
 def delete_image():
+    user_id = request.form.get("user_id")
     if request.form.get("image_id"):
         file_name = request.form.get("image_id")
-        deleted = Picture().delete_image(file_name)
+        deleted = Picture().delete_image(file_name, user_id)
     elif request.args.get("bulk"):
-        deleted = Picture().bulk_delete()
+        deleted = Picture().bulk_delete(user_id)
     else:
         resp = response(
             HTTPStatus.BAD_REQUEST,
@@ -52,7 +54,7 @@ def delete_image():
         return jsonify(resp), HTTPStatus.BAD_REQUEST
 
     if deleted:
-        resp = response(HTTPStatus.MOVED_PERMANENTLY, "Successfully deleted image")
+        resp = response(HTTPStatus.MOVED_PERMANENTLY, "Successfully deleted image(s)")
         return jsonify(resp), HTTPStatus.MOVED_PERMANENTLY
     resp = response(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not delete image")
     return jsonify(resp), HTTPStatus.INTERNAL_SERVER_ERROR

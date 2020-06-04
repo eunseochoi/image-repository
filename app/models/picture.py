@@ -29,14 +29,16 @@ class Picture(Model):
     date_added = fields.DateTime()
     file_name = fields.TextField()
     blob_path = fields.TextField()
+    user_id = fields.TextField()
 
-    def __init__(self, image_id="", file_name="", blob_path=""):
+    def __init__(self, image_id="", file_name="", blob_path="", user_id=""):
         self.image_id = image_id
         self.date_added = datetime.datetime.now()
         self.file_name = file_name
         self.blob_path = blob_path
+        self.user_id = user_id
 
-    def add_image(self, image_object):
+    def add_image(self, image_object, user_id):
         # Check for file name
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
         blob = bucket.blob(self.file_name)
@@ -44,6 +46,7 @@ class Picture(Model):
             image_object.read(), content_type=image_object.content_type
         )
         self.blob_path = blob.name
+        self.user_id = user_id
         logger.info("Successfully uploaded image to GCP")
 
         # Store object in Firestore to keep track of ID's
@@ -51,11 +54,16 @@ class Picture(Model):
         db.collection("Images").document(self.image_id).set(self.__dict__)
         logger.info("Successfully stored document in Firestore")
 
-    def delete_image(self, image_id):
+    def delete_image(self, image_id, user_id):
         # Find Firestore document using image_id
         image = db.collection("Images").document(image_id)
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
         image_dict = image.get().to_dict()
+
+        # Check if the user credentials match the uploaded picture they wish to delete
+        if image_dict["user_id"] != user_id:
+            logger.error("This user does not have permission to delete the image")
+            return False
         try:
             bucket.delete_blob(image_dict["blob_path"])
             logger.debug("Deleted Blob: {}".format(image_dict["blob_path"]))
@@ -72,15 +80,16 @@ class Picture(Model):
             logger.error("Cannot find blob in the bucket")
             return False
 
-    def bulk_delete(self):
+    def bulk_delete(self, user_id):
         images = db.collection("Images").stream()
         count = 0
         try:
             for image in images:
-                self.delete_image(image.get("image_id"))
-                db.collection("Images").document(image.get("image_id")).delete()
-                count += 1
-            logger.debug("Deleted {} images".format(count))
+                is_deleted = self.delete_image(image.get("image_id"), user_id)
+                if is_deleted:
+                    db.collection("Images").document(image.get("image_id")).delete()
+                    count += 1
+                    logger.debug("Deleted {} images".format(count))
             return True
         except Exception as e:
             logger.error("Bulk-Delete Exception: {}".format(str(e)))
