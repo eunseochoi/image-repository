@@ -21,7 +21,7 @@ firebase_admin.initialize_app(cred, {
 
 db = firestore.client()
 
-class Image(Model):
+class Picture(Model):
     image_id = fields.TextField()
     date_added = fields.DateTime()
     file_name = fields.TextField()
@@ -49,7 +49,6 @@ class Image(Model):
     def delete_image(self, image_id):
         # Find Firestore document using image_id
         image = db.collection("Images").document(image_id)
-        print(image)
         bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
         image_dict = image.get().to_dict()
         try:
@@ -57,8 +56,22 @@ class Image(Model):
             print("======Deleted Blob=======")
             # Delete Firestore
             image.delete()
+            return True
         except Exception as e:
             print(str(e))
             print("Cannot find blob in the bucket")
+            return False
         
-        
+    def bulk_delete(self):
+        images = db.collection("Images").stream()
+        count = 0
+        try:
+            for image in images:
+                self.delete_image(image.get("image_id"))
+                db.collection("Images").document(image.get("image_id")).delete()
+                count += 1
+            print("Deleted {} images".format(count))
+            return True
+        except Exception as e:
+            print("Bulk-Delete Exception: ", str(e))
+            return False
