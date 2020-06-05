@@ -26,11 +26,12 @@ This is an image repository which has two main functionalities:
   b) date_uploaded  
   c) file_name  
   d) blob_path  
+  e) user_id  
 4. Store Firestore document for every file uploaded
 5. Implement Delete Functionality  
   a) single delete by ID  
   b) bulk delete  
 6. Incorporate user information into Firestore
 7. Check if user credentials match (uploaded image vs. Image they wish to delete)
-8. Unit tests
+8. Unit tests**
 9. Documentation
