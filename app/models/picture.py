@@ -39,20 +39,28 @@ class Picture(Model):
         self.user_id = user_id
 
     def add_image(self, image_object, user_id):
-        # Check for file name
-        bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
-        blob = bucket.blob(user_id + "_" + self.file_name)
-        blob.upload_from_string(
-            image_object.read(), content_type=image_object.content_type
-        )
-        self.blob_name = blob.name
-        self.user_id = user_id
-        logger.info("Successfully uploaded image to GCP")
+        try:
+            bucket = storage_client.get_bucket(CLOUD_STORAGE_BUCKET)
+            # In case users upload pictures with the same file name, concatenate user's id with file name
+            blob = bucket.blob(user_id + "_" + self.file_name)
+            blob.upload_from_string(
+                image_object.read(), content_type=image_object.content_type
+            )
+            self.blob_name = blob.name
+            self.user_id = user_id
+            logger.info("Successfully uploaded image to Google Cloud Bucket")
 
-        # Store object in Firestore to keep track of ID's
-        logger.info("IMAGE_ID: {}".format(self.image_id))
-        db.collection("Images").document(self.image_id).set(self.__dict__)
-        logger.info("Successfully stored document in Firestore")
+            # Store object in Firestore to keep track of ID's
+            db.collection("Images").document(self.image_id).set(self.__dict__)
+            logger.info(
+                "Successfully stored document with image_id: {} in Firestore".format(
+                    self.image_id
+                )
+            )
+            return True
+        except Exception as e:
+            logger.error(str(e))
+            return False
 
     def delete_image(self, image_id, user_id):
         # Find Firestore document using image_id
@@ -65,8 +73,10 @@ class Picture(Model):
             logger.error("This user does not have permission to delete the image")
             return False
         try:
+            # Delete blob from Google Cloud bucket
             bucket.delete_blob(image_dict["blob_name"])
             logger.debug("Deleted Blob: {}".format(image_dict["blob_name"]))
+
             # Delete Firestore
             image.delete()
             logger.debug(

@@ -20,6 +20,7 @@ app.config["ALLOWED_IMAGE_EXTENSIONS"] = ["JPEG", "JPG", "PNG", "GIF"]
 
 logger = logging.getLogger("logger")
 
+
 @app.route("/upload", methods=["POST"])
 def upload_image():
     user_id = request.form.get("user_id")
@@ -31,11 +32,17 @@ def upload_image():
                 resp = response(HTTPStatus.BAD_REQUEST, error_msg[0])
                 return jsonify(resp), HTTPStatus.BAD_REQUEST
             image = Picture(str(uuid.uuid4()), file_obj.filename)
-            image.add_image(file_obj, user_id)
-    resp = response(
-        HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files))
-    )
-    return jsonify(resp), HTTPStatus.CREATED
+            uploaded = image.add_image(file_obj, user_id)
+    if uploaded:
+        resp = response(
+            HTTPStatus.CREATED, "Successfully uploaded {} images".format(len(files))
+        )
+        return jsonify(resp), HTTPStatus.CREATED
+    else:
+        resp = (
+            response(HTTPStatus.NO_CONTENT, "Could not upload image"),
+            HTTPStatus.NO_CONTENT,
+        )
 
 
 @app.route("/delete", methods=["DELETE"])
@@ -71,18 +78,20 @@ def _is_file_valid(file_obj, request):
         is_valid["valid_name"] = False
         error_msg.append("File name not valid")
         return is_valid, error_msg
+
     # File Type Check (only images/gifs are allowed)
     if ext.upper() not in app.config["ALLOWED_IMAGE_EXTENSIONS"]:
         is_valid["type"] = False
         error_msg.append("File type not allowed")
         return is_valid, error_msg
+
     # File Size Check, if size exceeds, do not upload
     if "file_size" in request.cookies:
         file_size = request.cookies["file_size"]
         if int(file_size) <= app.config["MAX_IMAGE_FILESIZE"]:
             is_valid["size"] = False
             error_msg.append("File size exceeded maximum size of 500,000 bytes")
-            return is_valid, error_msg
+
     return is_valid, error_msg
 
 
